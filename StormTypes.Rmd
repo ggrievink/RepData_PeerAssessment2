@@ -13,7 +13,7 @@ Concretely research on  the following questions will be conducted:
 
 ###Loading and processing the raw data
  
-The data is uploaded form the course web site [Storm data](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2)  
+The data is uploaded form the course web site [Storm data](http://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2)  
   
 Documentation describing the database is available at the following locations 
 - National Wather service [Storm Data Documentation](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf)
@@ -23,10 +23,11 @@ Documentation describing the database is available at the following locations
 First read the data form the bz2 commpressed file, the fields are delimited by a ,  
 To avoid the long reading time of the file every time the block cache option is enabled. 
 during development also only read 5000 lines to speedup the process.
-```{r loaddata, cache=TRUE}
+```{r loaddata}
 library(data.table)
-##stormdata <- data.table(read.table("repdata_data_StormData.csv.bz2",header = TRUE, sep = ",",na.strings = "",  nrows = 5000))
-stormdata <- data.table(read.table("repdata_data_StormData.csv.bz2",header = TRUE, sep = ",",na.strings = ""))
+download.file("http://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2","repdata_data_StormData.csv.bz2")
+stormdata <- data.table(read.table("repdata_data_StormData.csv.bz2",header = TRUE, sep = ",",na.strings = "",  nrows = 5000))
+# stormdata <- data.table(read.table("repdata_data_StormData.csv.bz2",header = TRUE, sep = ",",na.strings = ""))
 ```
 
 After reading we test the first rows, there should be 902298 observations and 37 vaiables.
