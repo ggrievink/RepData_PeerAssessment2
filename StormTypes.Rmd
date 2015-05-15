@@ -1,17 +1,18 @@
 
-Storm consequences across the United States.
+Storm events and the consequences across the United States.
 ==================================
 
 #Synopsis
-The aim of this report is to understand the type of storm events accros  
-the Untied States that are most harmful for the populations healt and have  
-the greatest econommic consequences. 
+The aim of this report is to understand the type of storm events across the Untied States that are most  
+harmful for the populations health and have   the greatest economic consequences.  
+Concretely research on  the following questions will be conducted:
+ - Across the United States, which types of events are most harmful with respect to population health?
+ - Across the United States, which types of events have the greatest economic consequences??
 
-
+#Data Processing 
 
 #Loading and processing the raw data
  
-
 The data is uploaded form the course web site [Storm data](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2)  
   
 Documentation describing the database is available at the following locations 
@@ -21,8 +22,11 @@ Documentation describing the database is available at the following locations
 ## Reading the data 
 First read the data form the bz2 commpressed file, the fields are delimited by a ,  
 To avoid the long reading time of the file every time the block cache option is enabled. 
+during development also only read 5000 lines to speedup the process.
 ```{r loaddata, cache=TRUE}
-stormdata <- read.table("repdata_data_StormData.csv.bz2", sep = ",",na.strings = "")
+library(data.table)
+stormdata <- data.table(read.table("repdata_data_StormData.csv.bz2",header = TRUE, sep = ",",na.strings = "",  nrows = 5000))
+# stormdata <- data.table(read.table("repdata_data_StormData.csv.bz2",header = TRUE, sep = ",",na.strings = "")
 ```
 
 After reading we test the first rows, there should be 902298 observations and 37 vaiables.
@@ -32,3 +36,68 @@ dim(stormdata)
 ```{r}
 head(stormdata[, 1:10])
 ```
+
+#Results 
+
+Across the United States, which types of events are most harmful with respect to population health?  
+
+To determine the types of storms that are the most harmfull for the popiation, the data set is grouped by the types 
+of storms as indicated in the EVTYPE variable and add the total ammount of direct and indirect fatalities and injuries.
+
+```{r}
+ library(dplyr)
+most.harmfull <- stormdata %>% 
+                 group_by(EVTYPE) %>% 
+                 summarise_each(funs(sum), FATALITIES, INJURIES) %>%
+                 arrange(desc(FATALITIES), desc(INJURIES))
+most.harmfull
+```
+
+
+```{r}
+library(reshape2)
+library(ggplot2)
+most <- melt(most.harmfull, id="EVTYPE", variable.name="type", value.name="value")
+print(ggplot(aes(x=EVTYPE,y=value, fill=type), data = most ) + geom_bar( stat="identity"))
+```
+
+Across the United States, which types of events have the greatest economic consequences?
+
+To calculate the events with the greatest economic consequences the total aamount of proteries damage and crops lost damages is 
+added togeter by event type. Before the values can be added to getter the values have to be normalized. We normalize to Miljoens of dollar.
+```{r}
+ 
+normalize.values <- function(value, exp) {
+  ifelse(is.na(exp),  value / 1e6, 
+    ifelse ( (exp == "K"),  value / 1e3,
+      ifelse ( (exp == "M"),  value ,
+        ifelse ( (exp == "B"),  value * 1e3, value /1e6))))
+ }            
+ 
+economic.consequences <- stormdata %>% 
+    mutate (PROPDMGEXP = as.character(PROPDMGEXP)) %>% 
+    mutate (CROPDMGEXP = as.character(CROPDMGEXP)) %>%
+    mutate(damage.miljon.dollar = normalize.values(PROPDMG, PROPDMGEXP) +  normalize.values(CROPDMG,CROPDMGEXP)) %>%
+    group_by(EVTYPE) %>% 
+    summarise_each(funs(sum),damage.miljon.dollar) %>%
+    arrange(desc(damage.miljon.dollar))
+```
+
+create a bar plot of the damage
+```{r}
+library(ggplot2)
+
+chart <- ggplot(aes(x=EVTYPE,y=damage.miljon.dollar, fill=damage.miljon.dollar), data = economic.consequences ) + 
+          geom_bar( stat="identity") +
+          ggtitle("Damage by event") +
+          ylab("Damage (In Miljon dollars)") +
+          xlab("Event")                   
+print(chart)
+```
+
+
+
+
+
+
+ 
