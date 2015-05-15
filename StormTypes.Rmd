@@ -7,7 +7,7 @@ The aim of this report is to understand the type of storm events across the Unti
 harmful for the populations health and have   the greatest economic consequences.  
 Concretely research on  the following questions will be conducted:
  - Across the United States, which types of events are most harmful with respect to population health?
- - Across the United States, which types of events have the greatest economic consequences??
+ - Across the United States, which types of events have the greatest economic consequences?
 
 #Data Processing 
 
@@ -19,38 +19,66 @@ Documentation describing the database is available at the following locations
 - National Wather service [Storm Data Documentation](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf)
 - National Climatic Data Center Storm Events [FAQ](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf)
 
-### Reading the data 
-First read the data form the bz2 commpressed file, the fields are delimited by a ,  
-To avoid the long reading time of the file every time the block cache option is enabled. 
-during development also only read 5000 lines to speedup the process.
-```{r loaddata}
+```{r env} 
+options(scipen = 1, digits = 2)
 library(data.table)
-download.file("http://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2","repdata_data_StormData.csv.bz2")
-stormdata <- data.table(read.table("repdata_data_StormData.csv.bz2",header = TRUE, sep = ",",na.strings = "",  nrows = 5000))
-# stormdata <- data.table(read.table("repdata_data_StormData.csv.bz2",header = TRUE, sep = ",",na.strings = ""))
+library(dplyr)
 ```
 
-After reading we test the first rows, there should be 902298 observations and 37 vaiables.
+### Reading the data 
+First download the data file   
+ 
+ 
+```{r uploaddata, cache=TRUE}
+download.file("http://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2","repdata_data_StormData.csv.bz2")
+```
+Read the data from the bz2 commpressed file. The fields are delimited by a ,  
+To avoid the long reading time of the file every time the block cache option is enabled.
+
+The  varables we goning to user regarinding the questions asked are :
+- EVTYPE :  the event type (flood, tornado, etc) 
+- FATALITIES:the number of fatalities per storm  
+- INJURIEs : the number of injuries per storm  
+- PROPDMG : the ammount of damage on properties  
+- PROPDMGEXP: the magnitued of properties damage (thousands, millions)
+- CROPDMG : te ammount of damage on crops 
+- CROPDMGEXP : the magnitued of crop damage (thousands, millions)
+
+To make the data set more compact other variables are removed.
+```{r loaddata, cache=TRUE}
+stormdata <- data.table(read.table("repdata_data_StormData.csv.bz2",header = TRUE, sep = ",",na.strings = "")) %>%
+             select(EVTYPE, FATALITIES, INJURIES, PROPDMG, PROPDMGEXP, CROPDMG,CROPDMGEXP)
+```
+
+After reading we test the first rows, there should be 902297 observations and 7 variables.
 ```{r}
 dim(stormdata)
 ```
 ```{r}
-head(stormdata[, 1:10])
+str(stormdata)
 ```
-
- 
 
 ####Across the United States, which types of events are most harmful with respect to population health?  
 
 To determine the types of storms that are the most harmfull for the popiation, the data set is grouped by the types 
 of storms as indicated in the EVTYPE variable and add the total ammount of direct and indirect fatalities and injuries.
+The twenty most harmfull events are show all other events are summarized to one others event type.
 
-```{r}
- library(dplyr)
+```{r mostharmfullevent}
+  
 most.harmfull <- stormdata %>% 
                  group_by(EVTYPE) %>% 
                  summarise_each(funs(sum), FATALITIES, INJURIES) %>%
                  arrange(desc(FATALITIES), desc(INJURIES))
+total.events = dim(most.harmfull)[1] 
+ 
+less.harmfull <- most.harmfull[-c(1:20)]  %>% 
+                 ungroup() %>% 
+                 summarise_each(funs(sum), FATALITIES, INJURIES) %>%
+                 mutate(EVTYPE = "Others") 
+ 
+most.harmfull <- rbind (most.harmfull[1:20], less.harmfull)
+
 ```
 
 
@@ -58,8 +86,8 @@ most.harmfull <- stormdata %>%
 ####Across the United States, which types of events have the greatest economic consequences?
 
 To calculate the events with the greatest economic consequences the total aamount of proteries damage and crops lost damages is 
-added togeter by event type. Before the values can be added to getter the values have to be normalized. We normalize to Miljoens of dollar.
-```{r}
+added togeter by event type. Before the values can be added to getter the values have to be normalized. We normalize to millions of dollar.
+```{r economicconsequences}
  
 normalize.values <- function(value, exp) {
   ifelse(is.na(exp),  value / 1e6, 
@@ -71,31 +99,41 @@ normalize.values <- function(value, exp) {
 economic.consequences <- stormdata %>% 
     mutate (PROPDMGEXP = as.character(PROPDMGEXP)) %>% 
     mutate (CROPDMGEXP = as.character(CROPDMGEXP)) %>%
-    mutate(damage.miljon.dollar = normalize.values(PROPDMG, PROPDMGEXP) +  normalize.values(CROPDMG,CROPDMGEXP)) %>%
+    mutate(damage.million.dollar = normalize.values(PROPDMG, PROPDMGEXP)+ normalize.values(CROPDMG,CROPDMGEXP)) %>%
     group_by(EVTYPE) %>% 
-    summarise_each(funs(sum),damage.miljon.dollar) %>%
-    arrange(desc(damage.miljon.dollar))
+    summarise_each(funs(sum),damage.million.dollar) %>%
+    arrange(desc(damage.million.dollar))
+
+less.economic.consequences <-economic.consequences[-c(1:20)]  %>% 
+                 ungroup() %>% 
+                 summarise_each(funs(sum),damage.million.dollar) %>%
+                 mutate(EVTYPE = "Others") 
+ 
+economic.consequences <- rbind (economic.consequences[1:20],less.economic.consequences)
+
 ```
 
 #Results 
 
-The most harmfull events for the population is shwon in the table below
-```{r} 
+The twenty most harmfull events of the total of `r total.events` events for the population is shown in the table below.
+```{r viewharmfull} 
 most.harmfull
 ```
+The tables shows that the most harmfull events are `r as.character(most.harmfull[1, EVTYPE])` events.
 
 
-
-The most damaging events are show in the bar plot below.
-```{r}
+The twenty most damaging events of the total of `r total.events` are show in the bar plot below.  
+```{r vieweconomics}
 library(ggplot2)
-
-chart <- ggplot(aes(x=EVTYPE,y=damage.miljon.dollar, fill=damage.miljon.dollar), data = economic.consequences ) + 
+chart <- ggplot(aes(x=EVTYPE,y=damage.million.dollar, fill=damage.million.dollar), data = economic.consequences ) + 
           geom_bar( stat="identity") +
           ggtitle("Damage by event") +
-          ylab("Damage (In Miljon dollars)") +
-          xlab("Event")                   
+          ylab("Damage (In millions dollars)") +
+          xlab("Event") +
+          theme(axis.text.x=element_text(angle=70, hjust=1))
 print(chart)
-```
+```  
+
+The figure shows that the most damaging events are `r as.character(economic.consequences[1, EVTYPE])` events.
 
  
